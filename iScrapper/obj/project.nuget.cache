@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "dgSpecHash": "So/NdGLoawjjZBn1PM7ov58Q26zJG85Jam17VaD+vo2f3ux15rhCQ9BORdt7d9n8ShWdx3u26CtnFj51Snr2Mg==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\faith.olusegun\\source\\repos\\iScrapper\\iScrapper\\iScrapper.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\faith.olusegun\\.nuget\\packages\\microsoft.extensions.apidescription.server\\3.0.0\\microsoft.extensions.apidescription.server.3.0.0.nupkg.sha512",
+    "C:\\Users\\faith.olusegun\\.nuget\\packages\\microsoft.openapi\\1.2.3\\microsoft.openapi.1.2.3.nupkg.sha512",
+    "C:\\Users\\faith.olusegun\\.nuget\\packages\\newtonsoft.json\\13.0.1\\newtonsoft.json.13.0.1.nupkg.sha512",
+    "C:\\Users\\faith.olusegun\\.nuget\\packages\\selenium.webdriver\\4.9.1\\selenium.webdriver.4.9.1.nupkg.sha512",
+    "C:\\Users\\faith.olusegun\\.nuget\\packages\\selenium.webdriver.chromedriver\\113.0.5672.6300\\selenium.webdriver.chromedriver.113.0.5672.6300.nupkg.sha512",
+    "C:\\Users\\faith.olusegun\\.nuget\\packages\\selenium.webdriver.msedgedriver\\113.0.1774.50\\selenium.webdriver.msedgedriver.113.0.1774.50.nupkg.sha512",
+    "C:\\Users\\faith.olusegun\\.nuget\\packages\\swashbuckle.aspnetcore\\6.2.3\\swashbuckle.aspnetcore.6.2.3.nupkg.sha512",
+    "C:\\Users\\faith.olusegun\\.nuget\\packages\\swashbuckle.aspnetcore.swagger\\6.2.3\\swashbuckle.aspnetcore.swagger.6.2.3.nupkg.sha512",
+    "C:\\Users\\faith.olusegun\\.nuget\\packages\\swashbuckle.aspnetcore.swaggergen\\6.2.3\\swashbuckle.aspnetcore.swaggergen.6.2.3.nupkg.sha512",
+    "C:\\Users\\faith.olusegun\\.nuget\\packages\\swashbuckle.aspnetcore.swaggerui\\6.2.3\\swashbuckle.aspnetcore.swaggerui.6.2.3.nupkg.sha512"
+  ],
+  "logs": []
+}
