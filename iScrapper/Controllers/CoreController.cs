@@ -19,7 +19,7 @@ namespace iScrapper.Controllers
         [HttpGet("getstat24")]
         public async Task<IActionResult> GetStat24()
         {
-            var result = await _coreService.GetStat24Predictions();
+            var result = await _coreService.GetStat24Predictions("https://www.stats24.com/football/home-team-to-win/29");
 
             return Ok(result);
         }
@@ -27,11 +27,21 @@ namespace iScrapper.Controllers
         [HttpPost("runbot")]
         public async Task<IActionResult> RunStakingBot([FromBody] RunStakingBotRequest request)
         {
-            var result = await _coreService.RunBot(request.Count, request.Amount, request.IncludeUnder19And20, request.includeWomen);
+            var result = await _coreService.RunBot(request.MarketType, request.Count, request.Amount, request.IncludeUnder19And20, request.includeWomen);
 
             Console.WriteLine($"RESULT of the SPORTYBET STAKING BOT RUNNING >>> {result}");
 
             return Ok(result);  
+        }
+
+        [HttpPost("runmsportbot")]
+        public async Task<IActionResult> RunMsportBetBot([FromBody] RunStakingBotRequest request)
+        {
+
+            var result = await _coreService.RunMsportBetBot(request.MarketType, request.Count, request.Amount, request.IncludeUnder19And20, request.includeWomen);
+            Console.WriteLine($"RESULT of the MSPORT STAKING BOT RUNNING >>> {result}");
+
+            return Ok(result);
         }
 
         [HttpGet("getsearch")]

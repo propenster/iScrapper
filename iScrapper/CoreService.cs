@@ -8,6 +8,7 @@ using static System.Net.Mime.MediaTypeNames;
 using OpenQA.Selenium.Interactions;
 using System.Xml.Linq;
 using Microsoft.Extensions.Options;
+using System.Collections;
 
 namespace iScrapper
 {
@@ -245,7 +246,7 @@ namespace iScrapper
             return response;
         }
 
-        public async Task<GenericResponse<IEnumerable<Stats24Fixture>>> GetStat24Predictions()
+        public async Task<GenericResponse<IEnumerable<Stats24Fixture>>> GetStat24Predictions(string url)
         {
             var response = new List<Stats24Fixture>();
             IWebElement inputBox = default;
@@ -254,7 +255,7 @@ namespace iScrapper
             WebDriver driver = new EdgeDriver();
             try
             {
-                var url = "https://www.stats24.com/football/home-team-to-win/29";
+                //var url = "https://www.stats24.com/football/home-team-to-win/29";
 
                 driver.Navigate().GoToUrl(url);
                 //List<string> elementTexts = driver.FindElements(By.ClassName("comments")).Select(iw => iw.Text);
@@ -350,25 +351,26 @@ namespace iScrapper
             };
             return res;
         }
-
-        public async Task<GenericResponse<string>> RunBot(int count, string amount, bool includeUnder19And20, bool includeWomen)
+        private async Task<List<Stats24Fixture>> GetPredictions(string url, int count, bool includeUnder19And20, bool includeWomen)
         {
             var filtered = new List<Stats24Fixture>();
             var take = 0;
             try
             {
-                var getTodaysPredictions = await GetStat24Predictions();
+                var getTodaysPredictions = await GetStat24Predictions(url);
                 if (!getTodaysPredictions.Status)
                 {
                     await Task.Delay(2000);
-                    getTodaysPredictions = await GetStat24Predictions();
+                    getTodaysPredictions = await GetStat24Predictions(url);
                 }
 
                 if (!getTodaysPredictions.Status) return null;
 
                 //filtered = getTodaysPredictions.Data.Any() ? getTodaysPredictions.Data.Where(x => !x.Home.Contains("(w)") || !x.Away.Contains("(w)")).ToList() : new List<Stats24Fixture>();
                 if (getTodaysPredictions.Data.Any() && !includeUnder19And20) filtered = getTodaysPredictions.Data.Where(x => !x.Home.Contains("U19") && !x.Away.Contains("U19") && !x.Home.Contains("U20") && !x.Away.Contains("U20")).ToList();
-                if (getTodaysPredictions.Data.Any() && !includeWomen) filtered = getTodaysPredictions.Data.Where(x => !x.Home.Contains("(w)") || !x.Away.Contains("(w)")).ToList();
+                if (getTodaysPredictions.Data.Any() && !includeWomen) filtered = filtered.Where(x => !x.Home.Contains("(w)") || !x.Away.Contains("(w)")).ToList();
+                if (getTodaysPredictions.Data.Any()) filtered = filtered.Where(x => x.Probability.Trim() == "99%" || x.Probability.Trim() == "95%").ToList();
+                
 
                 if (count > getTodaysPredictions.Data.Count()) take = getTodaysPredictions.Data.Count();
                 else take = count;
@@ -378,6 +380,51 @@ namespace iScrapper
 
                 filtered = filtered.OrderBy(x => Guid.NewGuid()).Take(take).ToList();
 
+                return filtered;
+            }
+            catch (Exception ex)
+            {
+                Console.Write(ex);
+                return filtered;
+            }
+        }
+        public async Task<GenericResponse<string>> RunBot(MarketType marketType, int count, string amount, bool includeUnder19And20, bool includeWomen)
+        {
+            var filtered = new List<Stats24Fixture>();
+            var url = GetUrlByMarketType(marketType);
+            var take = 0;
+            try
+            {
+                //var getTodaysPredictions = await GetStat24Predictions();
+                //if (!getTodaysPredictions.Status)
+                //{
+                //    await Task.Delay(2000);
+                //    getTodaysPredictions = await GetStat24Predictions();
+                //}
+
+                //if (!getTodaysPredictions.Status) return null;
+
+                ////filtered = getTodaysPredictions.Data.Any() ? getTodaysPredictions.Data.Where(x => !x.Home.Contains("(w)") || !x.Away.Contains("(w)")).ToList() : new List<Stats24Fixture>();
+                //if (getTodaysPredictions.Data.Any() && !includeUnder19And20) filtered = getTodaysPredictions.Data.Where(x => !x.Home.Contains("U19") && !x.Away.Contains("U19") && !x.Home.Contains("U20") && !x.Away.Contains("U20")).ToList();
+                //if (getTodaysPredictions.Data.Any() && !includeWomen) filtered = getTodaysPredictions.Data.Where(x => !x.Home.Contains("(w)") || !x.Away.Contains("(w)")).ToList();
+
+                //if (count > getTodaysPredictions.Data.Count()) take = getTodaysPredictions.Data.Count();
+                //else take = count;
+
+                ////final compiled list... on randomixing...
+                ////filtered = filtered.Where(x => DateTime.Parse(x.Time).AddHours(-2) >= DateTime.Now).ToList();
+
+                //filtered = filtered.OrderBy(x => Guid.NewGuid()).Take(take).ToList();
+                filtered = await GetPredictions(url, count, includeUnder19And20, includeWomen);
+                if (!filtered.Any())
+                {
+                    return new GenericResponse<string>
+                    {
+                        Data = string.Empty,
+                        Status = true,
+                        Message = "No predictions data to train model.",
+                    };
+                }
                 //Stake 
                 var stakeSporty = await StakeSporty(amount, filtered);
                 Console.WriteLine($"Successfully ran Sporty bet stake >>> {stakeSporty}");
@@ -415,6 +462,8 @@ namespace iScrapper
             IWebElement searchBtn = default;
             IWebElement output = default;
             //WebDriver driver = new EdgeDriver();
+            var chromeOptions = new ChromeOptions();
+            chromeOptions.AddArguments("headless");
             WebDriver driver = new ChromeDriver();
 
             try
@@ -571,7 +620,7 @@ namespace iScrapper
 
                     try
                     {
-                        placeBetBtn = driver.FindElement(By.XPath("//*[@id=\"betslip-container\"]/div[1]/div[3]/div[1]/div[2]/div/div[7]/div[2]/span"));
+                        placeBetBtn = driver.FindElement(By.XPath("//*[@id=\"notInWebView\"]/div[3]/div/div[1]/div[2]/div/div/div[4]/div[1]/div[2]"));
                         //JavaScriptClickElement(driver, placeBetBtn, true);
 
                         actions.MoveToElement(placeBetBtn).Click().Perform();
@@ -580,7 +629,7 @@ namespace iScrapper
                     catch (Exception ex)
                     {
                         Console.Write(ex);
-                        placeBetBtn = driver.FindElement(By.XPath("//*[@id=\"notInWebView\"]/div[3]/div/div[1]/div[2]/div/div/div[4]/div[1]/div[2]"));
+                        placeBetBtn = driver.FindElement(By.XPath("//*[@id=\"notInWebView\"]/div[3]/div/div[1]/div[2]/div/div/div[4]/div[1]/div[2]/span"));
                         //JavaScriptClickElement(driver, placeBetBtn, true);
 
                         actions.MoveToElement(placeBetBtn).Click().Perform();
@@ -663,6 +712,584 @@ namespace iScrapper
             IJavaScriptExecutor executor = (IJavaScriptExecutor)driver;
             executor.ExecuteScript("arguments[0].scrollIntoView(true);", element);
             if (isClick == true) { element.Click(); }
+        }
+
+        public async Task<GenericResponse<string>> Run22BetBot()
+        {
+            var betCode = string.Empty;
+            IWebElement inputBox = default;
+            IWebElement searchBtn = default;
+            IWebElement output = default;
+            //WebDriver driver = new EdgeDriver();
+            var chromeOptions = new ChromeOptions();
+            chromeOptions.AddArguments("headless");
+            chromeOptions.AddArgument("--window-size=992,696");
+            WebDriver driver = new ChromeDriver();
+
+            try
+            {
+                var url = "https://22bet.ng/";
+
+                driver.Navigate().GoToUrl(url);
+                Actions actions = new Actions(driver);
+
+                //click the login button...
+
+
+                //Mobile Number
+                //LOGIN..
+                driver.FindElement(By.XPath("//input[@placeholder='Mobile Number']")).SendKeys(_configuration["sportyusername"]); //e.g 80929373461
+                driver.FindElement(By.XPath("//input[@placeholder='Password']")).SendKeys(_configuration["sportypassword"]); //sportLoginPassword
+
+                driver.FindElement(By.XPath("//button[@name='logIn']")).Click();
+
+                //ceteris paribus, we should have logged in to sporty...
+                await Task.Delay(1000);
+
+
+
+
+
+                return new GenericResponse<string>
+                {
+                    Data = betCode,
+                    Status = true,
+                    Message = "Successfully staked 22Bet"
+                };
+            }
+            catch (Exception ex)
+            {
+
+                return new GenericResponse<string> { Data = betCode, Status = false, Message = ex.Message };
+            }
+        }
+
+        public async Task<string> StakeMSport(string amount, List<Stats24Fixture> stats)
+        {
+            var betCode = string.Empty;
+            IWebElement inputBox = default;
+            IWebElement searchBtn = default;
+            IWebElement output = default;
+            //WebDriver driver = new EdgeDriver();
+            var chromeOptions = new ChromeOptions();
+            //chromeOptions.AddArguments("headless");
+            //chromeOptions.AddArgument("--window-size=992,696");
+            WebDriver driver = new ChromeDriver();
+
+            try
+            {
+                //var url = "https://www.msport.com/ng";
+                var url = "https://www.msport.com/ng/web/welcome";
+
+                driver.Navigate().GoToUrl(url);
+                Actions actions = new Actions(driver);
+
+                //click the login button...
+                //actions.MoveToElement(driver.FindElement(By.XPath("/html/body/div[1]/header/div[3]/div/button[2]"))).Click().Perform();
+
+
+                //Mobile Number
+                //LOGIN..
+                IWebElement username = driver.FindElement(By.XPath("/html/body/div[1]/header/div/div[1]/div[2]/form/div[1]/div[1]/div[1]/div/input"));
+                username.Clear();
+                username.SendKeys(_configuration["sportyusername"]); //e.g 80929373461
+
+                IWebElement password = driver.FindElement(By.XPath("/html/body/div[1]/header/div/div[1]/div[2]/form/div[1]/div[2]/div[1]/div/input"));
+                password.Clear();
+                password.SendKeys(_configuration["sportypassword"]); //sportLoginPassword
+
+                driver.FindElement(By.XPath("/html/body/div[1]/header/div/div[1]/div[2]/form/div[2]/button")).Click();
+
+                //ceteris paribus, we should have logged in to sporty...
+                await Task.Delay(1000);
+
+                driver.Navigate().GoToUrl($"https://www.msport.com/ng/find_matches");
+                //grab search input...
+                var betBucket = new List<int>();
+                var i = 0;
+                foreach (var item in stats)
+                {
+
+                    IWebElement searchBox = driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/input"));
+                    searchBox.Clear();
+
+                    searchBox.SendKeys(item.Home);
+                    await Task.Delay(300);
+
+                    try
+                    {
+                        var noResult = driver.FindElement(By.XPath("/html/body/div/div/div[2]/div/div[1]/div/div")); //.
+                        if (noResult != null /**&& noResult.Text.Contains("No results at this time")**/)
+                        {
+                            //driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/span/svg/use")).Click();
+                            searchBox.Clear();
+
+                            continue;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        //if (ex is StaleElementReferenceException)
+                        //{
+                        //    driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/span/svg/use")).Click();
+                        //    continue;
+                        //}
+                        //Console.WriteLine("Result was returned");
+                        //driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/span/svg/use")).Click();
+                        //continue;
+
+                    }
+                    IWebElement homeWin = default;
+                    IWebElement draw = default;
+                    IWebElement awayWin = default;
+                    try
+                    {
+
+                        homeWin = driver.FindElement(By.XPath("/html/body/div/div/div[2]/div/div[2]/div[1]/div[2]/div[2]/div[2]/div[1]"));
+                        draw = driver.FindElement(By.XPath("/html/body/div/div/div[2]/div/div[2]/div[1]/div[2]/div[2]/div[2]/div[2]"));
+                        awayWin = driver.FindElement(By.XPath("/html/body/div/div/div[2]/div/div[2]/div[1]/div[2]/div[2]/div[2]/div[3]"));
+
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.WriteLine("No match outcome odds was returned");
+                        //actions.MoveToElement(driver.FindElement(By.XPath("//*[@id=\"search\"]/div/i"))).Click().Perform();
+                        //driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/span/svg/use")).Click();
+                        searchBox.Clear();
+
+                        continue;
+                    }
+                    if (Math.Round(decimal.Parse(homeWin.Text), MidpointRounding.AwayFromZero) > Math.Round(decimal.Parse(awayWin.Text), MidpointRounding.AwayFromZero))
+                    {
+
+                        actions.MoveToElement(awayWin).Click().Perform();
+                        //JavaScriptClickElement(driver, awayWin, true);
+
+                        //awayWin.Click();
+                        //break;
+                    }
+                    else
+                    {
+                        //homeWin.Click();
+                        //JavaScriptClickElement(driver, homeWin, true);
+
+                        actions.MoveToElement(homeWin).Click().Perform();
+                        //break;
+
+                    }
+
+
+
+                    //driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/span/svg/use")).Click();
+                    searchBox.Clear();
+
+                    betBucket.Add(i);
+                    i++;
+
+
+                }
+
+                if (betBucket.Any())
+                {
+                    //open betslip dialog...
+                    IWebElement betSlip = default;
+                    IWebElement placeBet = default;
+                    IWebElement bookingCodeSpan = default;
+                    IWebElement finalOkBtn = default;
+
+
+                    try
+                    {
+                        betSlip = driver.FindElement(By.XPath("/html/body/div[1]/div/div[2]/div/div[3]/div[4]/div/div[1]/div[1]/div[2]"));
+                        actions.MoveToElement(betSlip).Click().Perform();
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.WriteLine(ex);
+                    }
+
+                    //click PlaceBet...
+                    try
+                    {
+                        ///html/body/div[1]/div/div[2]/div/div[3]/div[3]/div[3]/div/button[2]/span/div[1]
+                        placeBet = driver.FindElement(By.XPath("/html/body/div[1]/div/div[2]/div/div[3]/div[3]/div[3]/div/button[2]/span/div[1]"));
+                        actions.MoveToElement(placeBet).Click().Perform();
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.WriteLine(ex);
+                    }
+                    //copy booking code
+                    await Task.Delay(1000);
+                    try
+                    {
+                        bookingCodeSpan = driver.FindElement(By.XPath("/html/body/div[1]/div/div[2]/div/div[3]/div[3]/div/div[1]/div[3]/div[1]/div[2]/div[2]/span[1]"));
+                        betCode = bookingCodeSpan.Text ?? string.Empty; 
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.Write(ex);
+                    }
+
+                    //click final OK button...
+                    try
+                    {
+                        finalOkBtn = driver.FindElement(By.XPath("/html/body/div[1]/div/div[2]/div/div[3]/div[3]/div/div[1]/div[4]/div[1]/button[2]"));
+                        actions.MoveToElement(finalOkBtn).Click().Perform();
+                    }
+                    catch ( Exception ex)
+                    {
+
+                        Console.Write(ex);
+                    }
+
+
+                }
+
+
+
+
+
+
+
+
+
+
+
+                return betCode;
+                
+            }
+            catch (Exception ex)
+            {
+                Console.Write($"Error: {ex}");
+                return betCode;
+            }
+        }
+        private string GetUrlByMarketType(MarketType marketType)
+        {
+            var url = string.Empty;
+            switch (marketType)
+            {
+                case MarketType.HomeWins:
+                    url = "https://www.stats24.com/football/home-team-to-win/29";
+                    break;
+                case MarketType.HalfTimeOverPoint5:
+                    url = "https://www.stats24.com/football/over-0.5-goals-ht/3";
+                    break;
+
+                default:
+                    break;
+            }
+
+            return url;
+        }
+        public async Task<GenericResponse<string>> RunMsportBetBot(MarketType marketType, int count, string amount, bool includeUnder19And20, bool includeWomen)
+        {
+            var url = GetUrlByMarketType(marketType);
+            
+            var filtered = new List<Stats24Fixture>();
+            var betCode = string.Empty;
+            try
+            {
+                filtered = await GetPredictions(url, count, includeUnder19And20, includeWomen);
+                if (!filtered.Any())
+                {
+                    return new GenericResponse<string>
+                    {
+                        Data = string.Empty,
+                        Status = true,
+                        Message = "No predictions data to train model.",
+                    };
+                }
+
+                //Stake 
+                switch (marketType)
+                {
+                    case MarketType.HomeWins:
+                        betCode = await StakeMSport(amount, filtered);
+                        break;
+                        case MarketType.HalfTimeOverPoint5:
+                        betCode = await StakeMSportHalftimePoint5(amount, filtered);
+                        break;
+
+                    default:
+                        break;
+
+                }
+                Console.WriteLine($"Successfully ran MSport bet stake >>> {betCode}");
+
+                return new GenericResponse<string>
+                {
+                    Data = betCode,
+                    Status = true,
+                    Message = "Successfully staked MSport bet",
+                };
+            }
+            catch (Exception ex)
+            {
+
+                return new GenericResponse<string>
+                {
+                    Data = string.Empty,
+                    Message = ex.Message,
+                    Status = false,
+                };
+            }
+        }
+        /// <summary>
+        /// This is the automation for HalftTime over 0.5 on MSport Bookie...
+        /// </summary>
+        /// <param name="amount"></param>
+        /// <param name="filtered"></param>
+        /// <returns></returns>
+        private async Task<string> StakeMSportHalftimePoint5(string amount, List<Stats24Fixture> stats)
+        {
+            var betCode = string.Empty;
+            IWebElement inputBox = default;
+            IWebElement searchBtn = default;
+            IWebElement output = default;
+            //WebDriver driver = new EdgeDriver();
+            var chromeOptions = new ChromeOptions();
+            //chromeOptions.AddArguments("headless");
+            //chromeOptions.AddArgument("--window-size=992,696");
+            WebDriver driver = new ChromeDriver();
+
+            try
+            {
+                //var url = "https://www.msport.com/ng";
+                var url = "https://www.msport.com/ng/web/welcome";
+
+                driver.Navigate().GoToUrl(url);
+                Actions actions = new Actions(driver);
+
+                //click the login button...
+                //actions.MoveToElement(driver.FindElement(By.XPath("/html/body/div[1]/header/div[3]/div/button[2]"))).Click().Perform();
+
+
+                //Mobile Number
+                //LOGIN..
+                IWebElement username = driver.FindElement(By.XPath("/html/body/div[1]/header/div/div[1]/div[2]/form/div[1]/div[1]/div[1]/div/input"));
+                username.Clear();
+                Task.Run(() => username.SendKeys(_configuration["sportyusername"])).Wait();  //e.g 80929373461
+
+                IWebElement password = driver.FindElement(By.XPath("/html/body/div[1]/header/div/div[1]/div[2]/form/div[1]/div[2]/div[1]/div/input"));
+                password.Clear();
+                Task.Run(() => password.SendKeys(_configuration["sportypassword"])).Wait(); //sportLoginPassword
+
+                Task.Run(() => driver.FindElement(By.XPath("/html/body/div[1]/header/div/div[1]/div[2]/form/div[2]/button")).Click()).Wait();
+
+                //ceteris paribus, we should have logged in to sporty...
+                await Task.Delay(2000);
+
+                driver.Navigate().GoToUrl($"https://www.msport.com/ng/find_matches");
+                //grab search input...
+                var betBucket = new List<int>();
+                var i = 0;
+                foreach (var item in stats)
+                {
+
+                    IWebElement searchBox = driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/input"));
+                    searchBox.Clear();
+
+                    searchBox.SendKeys(item.Home);
+                    await Task.Delay(2000);
+
+                    try
+                    {
+                        //var noResult = driver.FindElement(By.XPath("/html/body/div/div/div[2]/div/div[1]/div/div")); //.
+                        var noResult = driver.FindElement(By.XPath("//p[contains(text(), 'No result at this time.')]"));
+                        if (noResult != null /**&& noResult.Text.Contains("No results at this time")**/)
+                        {
+                            //driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/span/svg/use")).Click();
+                            searchBox.Clear();
+
+                            continue;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex);
+                        //if (ex is StaleElementReferenceException)
+                        //{
+                        //    driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/span/svg/use")).Click();
+                        //    continue;
+                        //}
+                        //Console.WriteLine("Result was returned");
+                        //driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/span/svg/use")).Click();
+                        //continue;
+
+                    }
+
+
+                    //CLICK Result Row to expand markets under Fixture...
+                    IWebElement teamsResult = default;
+                    try
+                    {
+                        teamsResult = driver.FindElement(By.XPath("/html/body/div[1]/div/div[2]/div/div[2]/div[1]/div[2]/div[2]/div[1]"));
+                        await Task.Delay(2000);
+                        Task.Run(() => actions.MoveToElement(teamsResult).Click().Perform()).Wait();
+
+                        //actions.MoveToElement(teamsResult).Click().Perform();
+                    }
+                    catch (Exception ex)
+                    {
+                        //try to use the eventHeader div...
+                        teamsResult = driver.FindElement(By.XPath("/html/body/div[1]/div/div[2]/div/div[2]/div[1]/div[2]/div[1]"));
+                        await Task.Delay(2000);
+                        Task.Run(() => actions.MoveToElement(teamsResult).Click().Perform()).Wait();
+
+                        //actions.MoveToElement(teamsResult).Click().Perform();
+                    }
+                    //wait 1 second for the markets tabs to open..
+                    await Task.Delay(1000);
+                    //CLick Half tab...
+                    IWebElement halfTab = default;
+                    try
+                    {
+                        //halfTab = driver.FindElement(By.XPath("/html/body/div[1]/div[1]/div/div[3]/div/div[2]/div/div[1]/ul/li[4]"));
+                        //halfTab = driver.FindElement(By.XPath("//span[text()=' Half ']"));
+                        //driver.FindElement(By.XPath("//div[contains(text(), 'Login')]")).Click();
+
+                        halfTab = driver.FindElement(By.XPath("//span[contains(text(), 'Half')]"));
+                        Task.Run(() => actions.MoveToElement(halfTab).Click().Perform()).Wait();
+
+                        //actions.MoveToElement(halfTab).Click().Perform();
+                    }
+                    catch (Exception ex)
+                    {
+                        //if there is exception, there is no half tab... skip this record, go to the next one...
+                        Console.Write(ex);
+                        continue;
+                    }
+
+                    //CLICK halftime over 0.5 button
+                    IWebElement halfTimeOverPoint5 = default;
+                    try
+                    {
+                        //halfTimeOverPoint5 = driver.FindElement(By.XPath("/html/body/div[1]/div[1]/div/div[3]/div/div[2]/div/div[2]/div[2]/div[2]/div/div[2]/div[2]"));
+                        halfTimeOverPoint5 = driver.FindElement(By.XPath("//div[contains(text(), '0.5')]/following-sibling::div[contains(@class, 'm-outcome')][1]"));
+                        //halfTimeOverPoint5 = driver.FindElement(By.CssSelector("body > div > div.m-details.m-main > div > div.match-container > div > div.m-tab-container > div > div.m-market-list > div:nth-child(2) > div.m-market-item--content > div > div:nth-child(2) > div:nth-child(2)"));
+
+                        Task.Run(() => actions.MoveToElement(halfTimeOverPoint5).Click().Perform()).Wait();
+                        //actions.MoveToElement(halfTimeOverPoint5).Click().Perform();
+                    }
+                    catch (Exception ex)
+                    {
+                        //if there is exception, there is no half tab... skip this record, go to the next one...
+                        Console.Write(ex);
+                        continue;
+                    }
+
+                    //GO BACK... i.e CLick the Back Arrow on MSport...
+                    IWebElement backArrow = default;
+                    try
+                    {
+                        //backArrow = driver.FindElement(By.XPath("/html/body/div[1]/div[1]/div/div[1]/a"));
+                        ////actions.MoveToElement(backArrow).Click().Perform();
+                        //Task.Run(() => actions.MoveToElement(backArrow).Click().Perform()).Wait();
+                        //searchBox = driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/input"));
+                        //searchBox.Clear();
+                        driver.Navigate().Back();
+
+
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Write(ex);
+                        //if we get exception too.. we just use back on our Chrome Browser...
+                        searchBox = driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/input"));
+                        searchBox.Clear();
+                    }
+
+                    //driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/span/svg/use")).Click();
+
+                    
+                    i++;
+                    betBucket.Add(i);
+
+
+
+                }
+
+                if (betBucket.Any())
+                {
+                    //open betslip dialog...
+                    IWebElement betSlip = default;
+                    IWebElement placeBet = default;
+                    IWebElement bookingCodeSpan = default;
+                    IWebElement finalOkBtn = default;
+
+
+                    try
+                    {
+                        betSlip = driver.FindElement(By.XPath("/html/body/div[1]/div/div[2]/div/div[3]/div[4]/div/div[1]/div[1]/div[2]"));
+                        Task.Run(() => actions.MoveToElement(betSlip).Click().Perform()).Wait();
+
+                        //actions.MoveToElement(betSlip).Click().Perform();
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.WriteLine(ex);
+                    }
+
+                    //click PlaceBet...
+                    try
+                    {
+                        ///html/body/div[1]/div/div[2]/div/div[3]/div[3]/div[3]/div/button[2]/span/div[1]
+                        placeBet = driver.FindElement(By.XPath("/html/body/div[1]/div/div[2]/div/div[3]/div[3]/div[3]/div/button[2]/span/div[1]"));
+                        Task.Run(() => actions.MoveToElement(placeBet).Click().Perform()).Wait();
+
+                        //actions.MoveToElement(placeBet).Click().Perform();
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.WriteLine(ex);
+                    }
+                    //copy booking code
+                    await Task.Delay(1000);
+                    try
+                    {
+                        bookingCodeSpan = driver.FindElement(By.XPath("/html/body/div[1]/div/div[2]/div/div[3]/div[3]/div/div[1]/div[3]/div[1]/div[2]/div[2]/span[1]"));
+                        betCode = bookingCodeSpan.Text ?? string.Empty;
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.Write(ex);
+                    }
+
+                    //click final OK button...
+                    try
+                    {
+                        finalOkBtn = driver.FindElement(By.XPath("/html/body/div[1]/div/div[2]/div/div[3]/div[3]/div/div[1]/div[4]/div[1]/button[2]"));
+                        Task.Run(() => actions.MoveToElement(finalOkBtn).Click().Perform()).Wait();
+
+                        //actions.MoveToElement(finalOkBtn).Click().Perform();
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.Write(ex);
+                    }
+
+
+                }
+
+
+                return betCode;
+
+            }
+            catch (Exception ex)
+            {
+                Console.Write($"Error: {ex}");
+                return betCode;
+            }
         }
     }
 }
