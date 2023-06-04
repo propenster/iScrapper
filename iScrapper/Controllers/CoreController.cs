@@ -23,6 +23,25 @@ namespace iScrapper.Controllers
 
             return Ok(result);
         }
+        [HttpPost("bookingcodeconverter")]
+        public async Task<IActionResult> ConvertBookingCode([FromBody] ConvertBookingCodeRequest request)
+        {
+            var result = await _coreService.ConvertBookingCode(request);
+
+            Console.WriteLine($"RESULT of the SPORTYBET STAKING BOT RUNNING >>> {result}");
+
+            return Ok(result);
+        }
+
+        [HttpGet("drawpredictions")]
+        public async Task<IActionResult> DrawPredictions()
+        {
+            var result = await _coreService.GetDrawPredictionsXbet();
+
+            Console.WriteLine($"RESULT of the 1XBET DRAW PREDICTIONS RUNNING >>> {result}");
+
+            return Ok(result);
+        }
 
         [HttpPost("runbot")]
         public async Task<IActionResult> RunStakingBot([FromBody] RunStakingBotRequest request)

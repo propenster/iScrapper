@@ -17,7 +17,6 @@
         Merry = 3,
         Kings = 4,
         Melbet = 5,
-
-
+        MSport = 6,
     }
 }

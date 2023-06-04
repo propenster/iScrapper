@@ -10,5 +10,10 @@
         Task<GenericResponse<string>> Run22BetBot();
         Task<GenericResponse<string>> RunMsportBetBot(MarketType marketType, int count, string amount, bool includeUnder19And20, bool includeWomen);
 
+
+        Task<GenericResponse<string>> ConvertBookingCode(ConvertBookingCodeRequest request);
+
+        Task<List<DrawPredictorModel>> GetDrawPredictionsXbet();
+
     }
 }

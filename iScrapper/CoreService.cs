@@ -9,6 +9,8 @@ using OpenQA.Selenium.Interactions;
 using System.Xml.Linq;
 using Microsoft.Extensions.Options;
 using System.Collections;
+using System.Collections.ObjectModel;
+using System.Runtime.CompilerServices;
 
 namespace iScrapper
 {
@@ -370,7 +372,7 @@ namespace iScrapper
                 if (getTodaysPredictions.Data.Any() && !includeUnder19And20) filtered = getTodaysPredictions.Data.Where(x => !x.Home.Contains("U19") && !x.Away.Contains("U19") && !x.Home.Contains("U20") && !x.Away.Contains("U20")).ToList();
                 if (getTodaysPredictions.Data.Any() && !includeWomen) filtered = filtered.Where(x => !x.Home.Contains("(w)") || !x.Away.Contains("(w)")).ToList();
                 if (getTodaysPredictions.Data.Any()) filtered = filtered.Where(x => x.Probability.Trim() == "99%" || x.Probability.Trim() == "95%").ToList();
-                
+
 
                 if (count > getTodaysPredictions.Data.Count()) take = getTodaysPredictions.Data.Count();
                 else take = count;
@@ -927,7 +929,7 @@ namespace iScrapper
                     try
                     {
                         bookingCodeSpan = driver.FindElement(By.XPath("/html/body/div[1]/div/div[2]/div/div[3]/div[3]/div/div[1]/div[3]/div[1]/div[2]/div[2]/span[1]"));
-                        betCode = bookingCodeSpan.Text ?? string.Empty; 
+                        betCode = bookingCodeSpan.Text ?? string.Empty;
                     }
                     catch (Exception ex)
                     {
@@ -941,7 +943,7 @@ namespace iScrapper
                         finalOkBtn = driver.FindElement(By.XPath("/html/body/div[1]/div/div[2]/div/div[3]/div[3]/div/div[1]/div[4]/div[1]/button[2]"));
                         actions.MoveToElement(finalOkBtn).Click().Perform();
                     }
-                    catch ( Exception ex)
+                    catch (Exception ex)
                     {
 
                         Console.Write(ex);
@@ -961,7 +963,7 @@ namespace iScrapper
 
 
                 return betCode;
-                
+
             }
             catch (Exception ex)
             {
@@ -990,7 +992,7 @@ namespace iScrapper
         public async Task<GenericResponse<string>> RunMsportBetBot(MarketType marketType, int count, string amount, bool includeUnder19And20, bool includeWomen)
         {
             var url = GetUrlByMarketType(marketType);
-            
+
             var filtered = new List<Stats24Fixture>();
             var betCode = string.Empty;
             try
@@ -1012,7 +1014,7 @@ namespace iScrapper
                     case MarketType.HomeWins:
                         betCode = await StakeMSport(amount, filtered);
                         break;
-                        case MarketType.HalfTimeOverPoint5:
+                    case MarketType.HalfTimeOverPoint5:
                         betCode = await StakeMSportHalftimePoint5(amount, filtered);
                         break;
 
@@ -1207,7 +1209,7 @@ namespace iScrapper
 
                     //driver.FindElement(By.XPath("/html/body/div/div/div[1]/form/div/span/svg/use")).Click();
 
-                    
+
                     i++;
                     betBucket.Add(i);
 
@@ -1289,6 +1291,457 @@ namespace iScrapper
             {
                 Console.Write($"Error: {ex}");
                 return betCode;
+            }
+        }
+
+        public async Task<GenericResponse<string>> ConvertBookingCode(ConvertBookingCodeRequest request)
+        {
+            var response = new GenericResponse<string>();
+            try
+            {
+                var items = await LoadBookingCodeBeforeConversion(request.BookingCode, request.Source);
+
+                if (!items.Any())
+                {
+                    return new GenericResponse<string>
+                    {
+                        Data = "Failed to convert 1xBet to SportyBet",
+                        Message = "Failed.",
+                        Status = false,
+                    };
+                }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                return new GenericResponse<string>
+                {
+                    Data = "Successfully loaded and converted 1xBet to SportyBet",
+                    Message = "Success",
+                    Status = true,
+                };
+            }
+            catch (Exception ex)
+            {
+
+                return new GenericResponse<string>
+                {
+                    Data = "Failed to convert 1xBet to SportyBet",
+                    Message = ex.Message,
+                    Status = false,
+                };
+            }
+        }
+        private async Task<string> BookFixtureList(List<Stats24Fixture> stats, XPlatforms bookie)
+        {
+            var response = string.Empty;
+            switch (bookie)
+            {
+                case XPlatforms.Sporty:
+                    response = await BookSportyFromFixtures(stats);
+                    break;
+
+                case XPlatforms.MSport:
+                    response = await BookMSportFromFixtures(stats);
+                    break;
+
+                default:
+                    response = string.Empty;
+                    break;
+
+            }
+
+
+            return response;
+        }
+
+        private Task<string> BookMSportFromFixtures(List<Stats24Fixture> stats)
+        {
+            throw new NotImplementedException();
+        }
+
+        private async Task<string> BookSportyFromFixtures(List<Stats24Fixture> stats)
+        {
+            throw new NotImplementedException();
+        }
+
+        private async Task<List<Stats24Fixture>> LoadBookingCodeBeforeConversion(string bookingCode, XPlatforms bookie)
+        {
+            var response = new List<Stats24Fixture>();
+            switch (bookie)
+            {
+                case XPlatforms.XBet:
+                    response = await Load1xBetEventsByCode(bookingCode);
+                    break;
+
+                default:
+                    response = new List<Stats24Fixture>();
+                    break;
+
+            }
+
+
+            return response;
+        }
+        private async Task<List<DrawPredictorModel>> GetDrawPredictionsFrom1xBet(string url)
+        {
+            var response = new List<DrawPredictorModel>();
+            IWebElement inputBox = default;
+            IWebElement searchBtn = default;
+            IWebElement output = default;
+            //WebDriver driver = new EdgeDriver();
+            var chromeOptions = new ChromeOptions();
+            chromeOptions.AddArguments("headless");
+            WebDriver driver = new ChromeDriver(chromeOptions);
+            try
+            {
+                driver.Navigate().GoToUrl(url);
+                driver.Manage().Window.Maximize();
+
+                await Task.Delay(1000);
+                driver.FindElement(By.XPath("//*[@id=\"app\"]/div[2]/div/div/div[3]/aside/button")).Click();
+                ReadOnlyCollection<IWebElement> matchList = default;
+                try
+                {
+                    matchList = driver.FindElements(By.XPath("//*[@id=\"app\"]/div[2]/div/div/div[2]/main/div[2]/div/div/div[2]/div/ul/li[1]/ul/li"));
+
+                }
+                catch (Exception ex)
+                {
+
+                    Console.WriteLine(ex);
+                    return response;
+                }
+
+                for(int i =0; i < matchList.Count; i++)
+                {
+                    var index = i + 1;
+                    if (index == 1) continue; //index 1 is for Match Date... We don't need that...
+                    var match = new DrawPredictorModel();
+                    match.Home = driver.FindElement(By.XPath($"//*[@id=\"app\"]/div[2]/div/div/div[2]/main/div[2]/div/div/div[2]/div/ul/li[1]/ul/li[{index}]/div[1]/span[1]/a/span/span/div[1]/div[1]/span/span")).Text ?? string.Empty;
+                    match.Away = driver.FindElement(By.XPath($"//*[@id=\"app\"]/div[2]/div/div/div[2]/main/div[2]/div/div/div[2]/div/ul/li[1]/ul/li[{index}]/div[1]/span[1]/a/span/span/div[2]/div[1]/span/span")).Text ?? string.Empty;
+                    match.HomeWin = driver.FindElement(By.XPath($"//*[@id=\"app\"]/div[2]/div/div/div[2]/main/div[2]/div/div/div[2]/div/ul/li[1]/ul/li[{index}]/div[2]/span[1]/button[1]/span")).Text ?? string.Empty;
+                    match.Draw = driver.FindElement(By.XPath($"//*[@id=\"app\"]/div[2]/div/div/div[2]/main/div[2]/div/div/div[2]/div/ul/li[1]/ul/li[{index}]/div[2]/span[1]/button[2]/span")).Text ?? string.Empty;
+                    match.AwayWin = driver.FindElement(By.XPath($"//*[@id=\"app\"]/div[2]/div/div/div[2]/main/div[2]/div/div/div[2]/div/ul/li[1]/ul/li[{index}]/div[2]/span[1]/button[3]/span")).Text ?? string.Empty;
+
+
+                    match.HomeWinOrDraw = driver.FindElement(By.XPath($"//*[@id=\"app\"]/div[2]/div/div/div[2]/main/div[2]/div/div/div[2]/div/ul/li[1]/ul/li[{index}]/div[2]/span[2]/button[1]/span")).Text ?? string.Empty;
+                    match.HomeOrAway = driver.FindElement(By.XPath($"//*[@id=\"app\"]/div[2]/div/div/div[2]/main/div[2]/div/div/div[2]/div/ul/li[1]/ul/li[{index}]/div[2]/span[2]/button[2]/span")).Text ?? string.Empty;
+                    match.AwayWinOrDraw = driver.FindElement(By.XPath($"//*[@id=\"app\"]/div[2]/div/div/div[2]/main/div[2]/div/div/div[2]/div/ul/li[1]/ul/li[{index}]/div[2]/span[2]/button[3]/span")).Text ?? string.Empty;
+
+                    match.Date = driver.FindElement(By.XPath($"//*[@id=\"app\"]/div[2]/div/div/div[2]/main/div[2]/div/div/div[2]/div/ul/li[1]/ul/li[{index}]/div[1]/span[2]/span[1]/span[1]")).Text ?? string.Empty;
+
+
+                    if(!string.IsNullOrWhiteSpace(match?.HomeWin) && !string.IsNullOrWhiteSpace(match?.AwayWin) && !string.IsNullOrWhiteSpace(match?.Draw) && !string.IsNullOrWhiteSpace(match?.HomeWinOrDraw) && !string.IsNullOrWhiteSpace(match?.HomeOrAway))
+                    {
+                        //prevent duplicates...in the same batch...
+                        if (response.Any(x => x.Home == match.Home && x.Away == match.Away && x.HomeWin == match.HomeWin && x.AwayWin == match.AwayWin)) continue;
+
+                        //if(match?.HomeWin.ToCharArray().LastOrDefault() == match?.AwayWin.ToCharArray().LastOrDefault()) 
+                        //{
+                        //    match.DrawPercentageProbability = "90%";
+                        //    response.Add(match);
+                        //}
+
+                        if ((match?.HomeWin.ToCharArray().LastOrDefault() == match?.AwayWin.ToCharArray().LastOrDefault()) && (match.HomeWinOrDraw.Contains("5") && (double.Parse(match.HomeWinOrDraw) > double.Parse(match.HomeOrAway))))
+                        {
+                            match.DrawPercentageProbability = "99%";
+                            match.IsDrawPossible = true;
+                            response.Add(match);
+                        }else
+                        {
+                            continue;
+                        }
+                    }
+
+
+                }
+
+                driver.Close();
+
+                return response;
+
+
+
+
+            }
+            catch (Exception ex)
+            {
+                Console.Write(ex);
+                driver.Close();
+                return response;
+            }
+        }
+        private async Task<List<Stats24Fixture>> Load1xBetEventsByCode(string bookingCode)
+        {
+            var response = new List<Stats24Fixture>();
+            IWebElement inputBox = default;
+            IWebElement searchBtn = default;
+            IWebElement output = default;
+            //WebDriver driver = new EdgeDriver();
+            var chromeOptions = new ChromeOptions();
+            chromeOptions.AddArguments("headless");
+            WebDriver driver = new ChromeDriver();
+            try
+            {
+                driver.Navigate().GoToUrl("https://1xbet.ng/en/line/football");
+
+                await Task.Delay(1000);
+                Actions actions = new Actions(driver);
+
+
+                IWebElement loadBetSlipToggle = default;
+                try
+                {
+                    //driver.Navigate().GoToUrl("https://1xbet.ng/en/line");
+                    driver.Navigate().GoToUrl("https://1xbet.ng/en/line/football");
+
+                    if (driver.Url == "https://1xbet.ng/en/line/football")
+                    {
+                        loadBetSlipToggle = driver.FindElement(By.XPath("//*[contains(text(), 'Save/load bet slip')]"));
+
+                    }
+                    else
+                    {
+                        //https://ng.1x001.com/en/line
+                        loadBetSlipToggle = driver.FindElement(By.XPath("//*[contains(text(), 'Save/load events')]"));
+
+                    }
+
+                    IJavaScriptExecutor executor = (IJavaScriptExecutor)driver;
+                    executor.ExecuteScript("arguments[0].scrollIntoView();", loadBetSlipToggle);
+                    loadBetSlipToggle.Click();
+                    //JavaScriptClickElement(driver, loadBetSlipToggle, true);
+                    //actions.MoveToElement(loadBetSlipToggle).Click().Perform();
+
+                }
+                catch (Exception ex)
+                {
+
+                    return response;
+                }
+
+                //opens an input to enter code...
+                IWebElement inputBoxForCode = default;
+                try
+                {
+                    if (driver.Url == "https://1xbet.ng/en/line/football")
+                    {
+                        inputBoxForCode = driver.FindElement(By.XPath("//input[@placeholder='Code for loading']"));
+
+                    }
+                    else
+                    {
+                        inputBoxForCode = driver.FindElement(By.XPath("//input[@placeholder='Enter code to load events']"));
+
+                    }
+                    inputBoxForCode.SendKeys(bookingCode);
+                }
+                catch (Exception ex)
+                {
+                    Console.Write(ex);
+                    return response;
+                }
+
+                await Task.Delay(200);
+                //click load...
+                IWebElement loadCodeBtn = default;
+                try
+                {
+                    loadCodeBtn = driver.FindElement(By.XPath("//*[contains(@class,'c-btn c-btn--block c-btn--theme-brand')]/span[contains(text(), 'Load')]"));
+                    IJavaScriptExecutor executor = (IJavaScriptExecutor)driver;
+                    executor.ExecuteScript("arguments[0].scrollIntoView(true);", loadCodeBtn);
+                    loadCodeBtn.Click();
+                }
+                catch (Exception ex)
+                {
+
+                    Console.WriteLine(ex);
+                    return response;
+                }
+
+                //is it an incorrect code...
+                IWebElement incorrectCode = default;
+                try
+                {
+                    incorrectCode = driver.FindElement(By.XPath("//*[contains(text(), 'Incorrect code')]"));
+                    //return response;
+                }
+                catch (Exception ex)
+                {
+
+                    Console.Write(ex);
+                }
+
+                //else... we got results... matches... so copy them...
+                ReadOnlyCollection<IWebElement> matchList = default;
+                try
+                {
+                    //cpn-bet cpn-bets-list__item
+                    //matchList = driver.FindElements(By.XPath("//div[@class, 'cpn-bet cpn-bets-list__item']"));
+                    ////*[@id="sports_right"]/div/div[2]/div[2]/div[1]/div[2]/div/div[2]/div/div/div
+                    //matchList = driver.FindElements(By.XPath("//*[@id=\"sports_right\"]/div/div[2]/div[2]/div[1]/div[2]/div/div[2]/div/div/div/div[2]"));
+                    //
+                    //matchList = driver.FindElements(By.CssSelector("#sports_right > div > div.cpn.cpn--top > div.cpn__layout > div.cpn-content > div.cpn-content > div > div.cpn-bets.cpn-content__bets > div > div > div"));
+
+                    matchList = driver.FindElements(By.XPath("//div[contains(@class, 'cpn-bet__content')]"));
+                }
+                catch (Exception ex)
+                {
+
+                    Console.Write(ex);
+                    return response;
+                }
+
+                //loop through
+                for (int i = 0; i < matchList.Count(); i++)
+                {
+                    var index = i + 1;
+                    IWebElement x = matchList[i];
+                    var res = new Stats24Fixture();
+
+                    //get team List Items..
+                    try
+                    {
+                        res.Home = driver.FindElement(By.XPath($"//*[@id=\"sports_right\"]/div/div[2]/div[2]/div[1]/div[2]/div/div[2]/div/div/div[{index}]/div[2]/div[1]/div[1]/div/span[2]")).Text ?? string.Empty;
+                        res.Away = driver.FindElement(By.XPath($"//*[@id=\"sports_right\"]/div/div[2]/div[2]/div[1]/div[2]/div/div[2]/div/div/div[{index}]/div[2]/div[1]/div[2]/div/span[2]")).Text ?? string.Empty;
+                        res.Market = driver.FindElement(By.XPath("//*[@id=\"sports_right\"]/div/div[2]/div[2]/div[1]/div[2]/div/div[2]/div/div/div[{index}]/div[2]/div[2]/div[1]")).Text ?? string.Empty;
+                    }
+                    catch (Exception ex)
+                    {
+
+                        continue;
+                    }
+
+                    response.Add(res);
+
+                }
+
+
+                return response;
+
+
+
+
+
+            }
+            catch (Exception ex)
+            {
+
+                return response;
+            }
+        }
+
+        public async Task<List<DrawPredictorModel>> GetDrawPredictionsXbet()
+        {
+            var response = new List<DrawPredictorModel>();
+
+
+            var drawLeagueList = new string[]
+            {
+                "https://ng.1x001.com/en/line/football",
+                "https://ng.1x001.com/en/line/football/127733-spain-la-liga",
+                "https://ng.1x001.com/en/line/football/1748917-germany-oberliga-mittelrhein",
+                "https://ng.1x001.com/en/line/football/109839-turkish-cup",
+                "https://ng.1x001.com/en/line/football/120819-portugal-taca-de-portugal",
+                "https://ng.1x001.com/en/line/football/110163-italy-serie-a",
+                "https://ng.1x001.com/en/line/football/33957-italy-serie-d",
+                "https://ng.1x001.com/en/line/football/11113-turkey-superliga",
+                "https://ng.1x001.com/en/line/football/1268397-brazil-campeonato-brasileiro-serie-a",
+                "https://ng.1x001.com/en/line/football/40783-czech-republic-3-liga",
+                "https://ng.1x001.com/en/line/football/1554897-finland-veikkausliiga",
+                "https://ng.1x001.com/en/line/football/8773-denmark-superliga",
+                "https://ng.1x001.com/en/line/football/118737-japan-j-league",
+                "https://ng.1x001.com/en/line/football/33021-kazakhstan-premier-league",
+                "https://ng.1x001.com/en/line/football/1793471-norway-eliteserien",
+                "https://ng.1x001.com/en/line/football/212425-sweden-allsvenskan",
+                "https://ng.1x001.com/en/line/football/1932228-albania-second-division",
+                "https://ng.1x001.com/en/line/football/2542886-australia-championship-queensland-premier-league-u23",
+                "https://ng.1x001.com/en/line/football/40233-australia-new-south-wales-premier-league",
+                "https://ng.1x001.com/en/line/football/306753-barbados-premier-league",
+                "https://ng.1x001.com/en/line/football/1015483-belarus-premier-league",
+                "https://ng.1x001.com/en/line/football/119629-bolivia-lfpb",
+                "https://ng.1x001.com/en/line/football/1163095-brunei-super-league",
+                "https://ng.1x001.com/en/line/football/30037-bulgaria-a-pfg",
+                "https://ng.1x001.com/en/line/football/58345-chile-primera-b",
+                "https://ng.1x001.com/en/line/football/178771-chile-segunda",
+                "https://ng.1x001.com/en/line/football/69667-chile-tercera-division",
+                "https://ng.1x001.com/en/line/football/202305-china-league-one",
+                "https://ng.1x001.com/en/line/football/209499-china-second-league",
+                "https://ng.1x001.com/en/line/football/58043-china-super-league",
+                "https://ng.1x001.com/en/line/football/214147-colombia-categoria-primera-a",
+                "https://ng.1x001.com/en/line/football/214149-colombia-categora-primera-b",
+                "https://ng.1x001.com/en/line/football/156433-ivory-coast-league-1",
+                "https://ng.1x001.com/en/line/football/2439504-croatia-2-nl",
+                "https://ng.1x001.com/en/line/football/276999-ecuador-serie-a",
+                "https://ng.1x001.com/en/line/football/147087-egypt-premier-league",
+                "https://ng.1x001.com/en/line/football/228159-estonia-esiliiga",
+                "https://ng.1x001.com/en/line/football/887095-estonia-esiliiga-b",
+                "https://ng.1x001.com/en/line/football/590333-ethiopia-premier-league",
+                "https://ng.1x001.com/en/line/football/846723-faroe-islands-effodeildin",
+                "https://ng.1x001.com/en/line/football/1692256-gambian-championship-1st-division",
+                "https://ng.1x001.com/en/line/football/987235-georgia-league-2",
+                "https://ng.1x001.com/en/line/football/985923-guatemala-primera-division-de-ascenso",
+                "https://ng.1x001.com/en/line/football/31504-iceland-urvalsdeild",
+                "https://ng.1x001.com/en/line/football/206239-latvia-1st-league",
+                "https://ng.1x001.com/en/line/football/120501-latvia-virsliga",
+                "https://ng.1x001.com/en/line/football/33371-lithuania-a-liga",
+                "https://ng.1x001.com/en/line/football/16323-malaysia-superleague",
+                "https://ng.1x001.com/en/line/football/596117-mali-premiere-division",
+                "https://ng.1x001.com/en/line/football/2126323-mexico-liga-de-expansion-mx",
+                "https://ng.1x001.com/en/line/football/181251-myanmar-premier-league",
+                "https://ng.1x001.com/en/line/football/981391-nepal-division-1",
+                "https://ng.1x001.com/en/line/football/55479-paraguay-primera-division",
+                "https://ng.1x001.com/en/line/football/120503-peru-primera-division",
+                "https://ng.1x001.com/en/line/football/62893-peru-segunda-division",
+                "https://ng.1x001.com/en/line/football/44243-philippines-ufl",
+                "https://ng.1x001.com/en/line/football/1023157-poland-iv-liga",
+                "https://ng.1x001.com/en/line/football/34893-romania-liga-3",
+                "https://ng.1x001.com/en/line/football/214107-senegal-premier-league",
+                "https://ng.1x001.com/en/line/football/30467-south-korea-k-league-1",
+                "https://ng.1x001.com/en/line/football/33137-south-korea-k-league-2",
+                "https://ng.1x001.com/en/line/football/92009-south-korea-league-k3",
+                "https://ng.1x001.com/en/line/football/2131868-syria-division-1",
+                "https://ng.1x001.com/en/line/football/1460999-chinese-taipei-premier-league",
+                "https://ng.1x001.com/en/line/football/67023-tajikistan-championship",
+                "https://ng.1x001.com/en/line/football/1800259-trinidad--tobago-pro-league",
+                "https://ng.1x001.com/en/line/football/28207-tunisia-ligue-1",
+                "https://ng.1x001.com/en/line/football/52183-uruguay-primera-division",
+                "https://ng.1x001.com/en/line/football/939273-venezuela-segunda-division",
+                "https://ng.1x001.com/en/line/football/28077-vietnam-v-league",
+                "https://ng.1x001.com/en/line/football/1526923-vietnam-v-league-division-2",
+                "https://ng.1x001.com/en/line/football/1522005-zimbabwe-premier-league",
+                "https://ng.1x001.com/en/line/football/2018750-netherlands-eredivisie"
+            };
+
+
+            try
+            {
+                for(int i = 0; i< drawLeagueList.Length; i++)
+                {
+                    var res = await GetDrawPredictionsFrom1xBet(drawLeagueList[i]);
+                    response.AddRange(res);
+
+                }
+
+                return response;
+
+            }
+            catch (Exception ex)
+            {
+
+                Console.Write(ex);
+                return response;
             }
         }
     }
