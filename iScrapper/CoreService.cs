@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
+using Microsoft.VisualBasic;
 
 namespace iScrapper
 {
@@ -380,7 +381,9 @@ namespace iScrapper
                 //final compiled list... on randomixing...
                 //filtered = filtered.Where(x => DateTime.Parse(x.Time).AddHours(-2) >= DateTime.Now).ToList();
 
-                filtered = filtered.OrderBy(x => Guid.NewGuid()).Take(take).ToList();
+                var statFiltered = await RefineFeatureStats(filtered);
+
+                filtered = statFiltered.OrderBy(x => Guid.NewGuid()).Take(count).ToList();
 
                 return filtered;
             }
@@ -390,6 +393,22 @@ namespace iScrapper
                 return filtered;
             }
         }
+
+        private async Task<List<Stats24Fixture>> RefineFeatureStats(List<Stats24Fixture> fixtures)
+        {
+            foreach(var item in fixtures)
+            {
+                var lastnmatches = await GetLastNMatches(item.Home, 10);
+                if (lastnmatches.Any())
+                {
+                    var counter = lastnmatches.Take(5).Count(x => x.Home.Contains(item.Home) || x.Away.Contains(item.Away) && x.Marker.Trim() == "W");
+                    if (counter < 3) fixtures.Remove(item);
+                }
+            }
+
+            return fixtures;
+        }
+
         public async Task<GenericResponse<string>> RunBot(MarketType marketType, int count, string amount, bool includeUnder19And20, bool includeWomen)
         {
             var filtered = new List<Stats24Fixture>();
@@ -774,9 +793,10 @@ namespace iScrapper
             IWebElement output = default;
             //WebDriver driver = new EdgeDriver();
             var chromeOptions = new ChromeOptions();
-            //chromeOptions.AddArguments("headless");
-            //chromeOptions.AddArgument("--window-size=992,696");
-            WebDriver driver = new ChromeDriver();
+            chromeOptions.AddArguments("--headless"); //disable-gpu
+            chromeOptions.AddArguments("--disable-gpu"); //disable-gpu
+            chromeOptions.AddArgument("--window-size=1920,1080");
+            WebDriver driver = new ChromeDriver(chromeOptions);
 
             try
             {
@@ -1041,6 +1061,118 @@ namespace iScrapper
                     Status = false,
                 };
             }
+        } 
+        public async Task<IEnumerable<PastMatchResult>> GetLastNMatches(string team, int nmatches)
+        {
+            var matches = new List<PastMatchResult>();
+
+            var betCode = string.Empty;
+            IWebElement inputBox = default;
+            IWebElement searchBtn = default;
+            IWebElement output = default;
+            //WebDriver driver = new EdgeDriver();
+            var chromeOptions = new ChromeOptions();
+            chromeOptions.AddArguments("--headless"); //disable-gpu
+            chromeOptions.AddArguments("--disable-gpu"); //disable-gpu
+            chromeOptions.AddArgument("--window-size=1920,1080");
+            WebDriver driver = new ChromeDriver(chromeOptions);
+
+            try
+            {
+                var url = "https://www.flashscore.com/";
+                //onetrust-accept-btn-handler
+                driver.Navigate().GoToUrl(url);
+                
+                Actions actions = new Actions(driver);
+                await Task.Delay(1500);
+
+                driver.FindElement(By.XPath("//button[contains(text(), 'I Accept')]")).Click();
+
+                await Task.Delay(1500);
+
+
+                var inputBtn = driver.FindElement(By.XPath("//span[contains(@class, 'searchIcon')]"));
+                inputBtn.Click();
+
+                //get input box
+                inputBox = driver.FindElement(By.XPath("//input[contains(@class, 'searchInput__input')]"));
+                inputBox.SendKeys(team);
+
+                await Task.Delay(1000);
+
+                //var searchResults = driver.FindElement(By.XPath("//*[@id=\"search-window\"]/div/div/div[3]/div/a[1]"));
+                var searchResults = driver.FindElement(By.XPath("/html/body/header/div/div[2]/div/div/div/div[3]/div/a[1]"));
+                searchResults.Click();
+
+                //var results = driver.FindElements(By.XPath("//div[contains(@class, 'event__match event__match--static event__match--twoLine')]"));
+                var results = driver.FindElements(By.XPath("/html/body/div[4]/div[1]/div/div/main/div[4]/div[2]/div[1]/section[2]/div[2]/div/div"));
+                //var results = driver.FindElements(By.XPath("/html/body/div[4]/div[1]/div/div/main/div[4]/div[2]/div[1]/section[2]/div[2]/div/div[{index}]"));
+                //var take = results.Take(nmatches).ToList();
+                ReadOnlyCollection<IWebElement> matchList = new ReadOnlyCollection<IWebElement>( results);
+                var index = 0;
+
+                //var newResult = driver.FindElements(By.XPath("/html/body/div[4]/div[1]/div/div/main/div[4]/div[2]/div[1]/section[2]/div[2]/div/div"));
+
+                //[not(contains(@class, 'event__header event__header--noExpand'))]
+
+                for (int i = 0; i < matchList.Count; i++)
+                //foreach (var (value, indexx) in matchList.Select((v, i) => (v, i)))
+                {
+                    if (i == 0) index = i + 2;
+                    else index += 1;
+                    
+                    //if (index == 6 || index == 8) continue;
+
+                    IWebElement result = matchList[i];
+
+                    //var allClasses = result.GetAttribute("class");
+                    //var elementHasClass = allClasses.Split(' ').Any(c => c.Contains("event__header"));
+                    //if (elementHasClass) continue;
+
+
+                    var matchTime = result.FindElement(By.XPath($"/html/body/div[4]/div[1]/div/div/main/div[4]/div[2]/div[1]/section[2]/div[2]/div/div[{index}]/div[1]")).Text.Trim();
+                    //var home = result.FindElement(By.XPath("//div[contains(@class, 'event__participant event__participant--home')]")).Text;
+                    var home = result.FindElement(By.XPath($"/html/body/div[4]/div[1]/div/div/main/div[4]/div[2]/div[1]/section[2]/div[2]/div/div[{index}]/div[2]")).Text;
+                    if (home.Contains("\r\n") || home.Contains(":")) continue;
+                    //var away = result.FindElement(By.XPath("//div[contains(@class, 'event__participant event__participant--away')]")).Text;
+                    var away = result.FindElement(By.XPath($"/html/body/div[4]/div[1]/div/div/main/div[4]/div[2]/div[1]/section[2]/div[2]/div/div[{index}]/div[3]")).Text;
+                    //var homeScore = result.FindElement(By.XPath("//div[contains(@class, 'event__score event__score--home')]")).Text;
+                    var homeScore = result.FindElement(By.XPath($"/html/body/div[4]/div[1]/div/div/main/div[4]/div[2]/div[1]/section[2]/div[2]/div/div[{index}]/div[4]")).Text;
+                    //var awayScore = result.FindElement(By.XPath("//div[contains(@class, 'event__score event__score--away')]")).Text;
+                    var awayScore = result.FindElement(By.XPath($"/html/body/div[4]/div[1]/div/div/main/div[4]/div[2]/div[1]/section[2]/div[2]/div/div[{index}]/div[5]")).Text;
+
+                    //var res = result.FindElement(By.XPath("//div[contains(@class, 'formIcon formIcon--w')]")).Text;
+                    var res = result.FindElement(By.XPath($"/html/body/div[4]/div[1]/div/div/main/div[4]/div[2]/div[1]/section[2]/div[2]/div/div[{index}]/div[8]")).Text;
+
+                    var past = new PastMatchResult
+                    {
+                        Home = home,
+                        Away = away,
+                        HomeScore = homeScore,
+                        AwayScore = awayScore,
+                        Marker = res ?? string.Empty,
+                        MatchTime = matchTime ?? string.Empty,
+                    };
+                    matches.Add(past);
+
+
+                }
+
+                driver.Close();
+
+                var iit = matches.Take(nmatches).ToList();
+
+                return iit;
+
+
+
+
+            }
+            catch (Exception ex)
+            {
+                Console.Write(ex);
+                return matches;
+            }
         }
         /// <summary>
         /// This is the automation for HalftTime over 0.5 on MSport Bookie...
@@ -1056,9 +1188,10 @@ namespace iScrapper
             IWebElement output = default;
             //WebDriver driver = new EdgeDriver();
             var chromeOptions = new ChromeOptions();
-            //chromeOptions.AddArguments("headless");
-            //chromeOptions.AddArgument("--window-size=992,696");
-            WebDriver driver = new ChromeDriver();
+            chromeOptions.AddArguments("--headless"); //disable-gpu
+            chromeOptions.AddArguments("--disable-gpu"); //disable-gpu
+            chromeOptions.AddArgument("--window-size=1920,1080");
+            WebDriver driver = new ChromeDriver(chromeOptions);
 
             try
             {

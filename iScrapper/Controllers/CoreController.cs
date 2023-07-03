@@ -63,6 +63,16 @@ namespace iScrapper.Controllers
             return Ok(result);
         }
 
+        [HttpPost("runlastnmatches")]
+        public async Task<IActionResult> RunLastNMatches([FromBody] LastNMatchesRequest request)
+        {
+
+            var result = await _coreService.GetLastNMatches(request.Team, request.Take);
+            Console.WriteLine($"RESULT of the MSPORT STAKING BOT RUNNING >>> {result}");
+
+            return Ok(result);
+        }
+
         [HttpGet("getsearch")]
         public async Task<IActionResult> GetSearch()
         {

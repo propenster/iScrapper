@@ -1,9 +1,20 @@
 using iScrapper;
+using NLog.Web;
+using System.Reflection.Metadata;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var logger = NLogBuilder.ConfigureNLog("NLog.config").GetCurrentClassLogger();
+
+builder.Logging.ClearProviders();
+builder.Logging.SetMinimumLevel(LogLevel.Information);
+builder.Host.UseNLog();
+
+logger.Info("STARTING USSD API now...");
+
 // Add services to the container.
-builder.Services.AddTransient<ICoreService, CoreService>();
+builder.Services.AddScoped<ICoreService, CoreService>();
+builder.Services.AddHostedService<Engine>();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -12,7 +23,7 @@ builder.Services.AddSwaggerGen();
 
 builder.WebHost.ConfigureKestrel(c =>
 {
-    c.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(15);
+    c.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(30);
 });
 
 var app = builder.Build();

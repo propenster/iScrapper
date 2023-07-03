@@ -46,6 +46,14 @@
         "net6.0": {
           "targetAlias": "net6.0",
           "dependencies": {
+            "NLog": {
+              "target": "Package",
+              "version": "[5.2.0, )"
+            },
+            "NLog.Web.AspNetCore": {
+              "target": "Package",
+              "version": "[5.3.0, )"
+            },
             "Selenium.WebDriver": {
               "target": "Package",
               "version": "[4.9.1, )"

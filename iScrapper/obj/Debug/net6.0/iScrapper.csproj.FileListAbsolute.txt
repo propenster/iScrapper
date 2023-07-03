@@ -35,3 +35,7 @@ C:\Users\faith.olusegun\source\repos\iScrapper\iScrapper\bin\Debug\net6.0\seleni
 C:\Users\faith.olusegun\source\repos\iScrapper\iScrapper\bin\Debug\net6.0\selenium-manager\windows\selenium-manager.exe
 C:\Users\faith.olusegun\source\repos\iScrapper\iScrapper\bin\Debug\net6.0\Newtonsoft.Json.dll
 C:\Users\faith.olusegun\source\repos\iScrapper\iScrapper\bin\Debug\net6.0\WebDriver.dll
+C:\Users\faith.olusegun\source\repos\iScrapper\iScrapper\bin\Debug\net6.0\nlog.config
+C:\Users\faith.olusegun\source\repos\iScrapper\iScrapper\bin\Debug\net6.0\NLog.dll
+C:\Users\faith.olusegun\source\repos\iScrapper\iScrapper\bin\Debug\net6.0\NLog.Extensions.Logging.dll
+C:\Users\faith.olusegun\source\repos\iScrapper\iScrapper\bin\Debug\net6.0\NLog.Web.AspNetCore.dll

@@ -14,6 +14,7 @@
         Task<GenericResponse<string>> ConvertBookingCode(ConvertBookingCodeRequest request);
 
         Task<List<DrawPredictorModel>> GetDrawPredictionsXbet();
+        Task<IEnumerable<PastMatchResult>> GetLastNMatches(string team, int nmatches);
 
     }
 }
